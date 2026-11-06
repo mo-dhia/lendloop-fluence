@@ -25,7 +25,7 @@ Create or select a Clerk **development** application, then put its publishable k
 
 Enable Clerk's Convex integration for the same application so Clerk issues the Convex audience expected by `convex/auth.config.ts` (`applicationID: "convex"`). Copy the instance issuer URL exactly into `CLERK_JWT_ISSUER_DOMAIN` and the local Convex environment below. This app does not trust Clerk public metadata for roles.
 
-For a new setup, Clerk's current supported CLI flow is `npx -y clerk@latest init`; it can provision an accountless development application. This assessment did not create or claim an application. Decide before running that command because it creates provider-side development configuration.
+For a new setup, Clerk's current supported CLI flow is `npx -y clerk@latest init`; it can provision an accountless development application. The isolated runtime checks used an unclaimed development application and two fictional users. No application was claimed. Configure your own application before running the demo; the review source includes no provider credentials or test-user details.
 
 ### 2. Start an anonymous local Convex backend
 
@@ -110,7 +110,9 @@ bun run build
 
 `tests/lendloop.test.ts` exercises the actual Convex handlers and HTTP routes with `convex-test`: missing identity, owner isolation, public DTO privacy, archive/history preservation, self-borrow and date checks, lender-only decisions, concurrent booking approval, participant-only returns, overdue/returned/future availability, delayed event snapshots and recipients, admin allowlist restrictions, HMAC tamper/path/method/stale timestamp checks, exact signed-request replay and changed-binding rejection, concurrent idempotent reminder write-backs, and exhausted outbox retry visibility. These tests exercise function logic with simulated verified Convex identities; they are not a substitute for a live Clerk JWT/browser sign-in.
 
-The exported workflows use the current n8n Webhook, Schedule Trigger, Code, and HTTP Request node formats. The Code nodes use n8n’s documented `$input` API and require only the allowed `crypto` builtin. The export JSON is inactive by default and must be imported, connected to the Error Workflow, then published in n8n.
+In a separate isolated development setup, two real Clerk browser sessions passed initial dashboard navigation, full-page reload, and the interactive create → request → approve → return flow. Convex queries wait for backend authentication before subscribing. Checks using those sessions also confirmed cross-owner and admin access denials and the minimal public projection. This verifies the development flow, not a production identity deployment.
+
+The exported workflows use the current n8n Webhook, Schedule Trigger, Code, and HTTP Request node formats. The Code nodes use n8n’s documented `$input` API and require only the allowed `crypto` builtin. The export JSON is inactive by default and must be imported, connected to the Error Workflow, then published in n8n. Runtime checks used n8n 2.46.6 through its CLI with local Convex and private test copies: signed webhook write-back and duplicate suppression passed; an accelerated schedule completed twelve runs; a bound error workflow completed five runs; and a deliberately dropped response was recovered by an identical signed retry, with one persisted notification. A changed body using the same nonce was rejected. The exported daily 06:00 trigger was not observed at its actual wall-clock time. Docker was unavailable, so the provided Compose configuration was not runtime-tested.
 
 ## Production changes
 
@@ -118,4 +120,4 @@ Use a claimed Clerk production instance and production keys, a dedicated product
 
 ## AI assistance and limits
 
-An LLM assisted implementation and documentation. No employer or client source code, API keys, private CV/profile facts, or production user data were used. No email, external message, public repository, deployment, paid plan, or provider account was created for this assessment. Current local validation includes Convex’s anonymous backend sync, Convex handler tests, TypeScript, ESLint, and a production Next.js build. Clerk sign-in and n8n execution still require operator-supplied local provider keys and Docker; they were not claimed as end-to-end runtime-tested here.
+An LLM assisted implementation, documentation, and the development checks. The review source contains no employer or client source code, real user data, private CV/profile records, provider credentials, or local provider state. Runtime checks used only fictional development users and synthetic loan data. The source passed 13 tests, TypeScript, ESLint, and a production Next.js build; isolated Clerk/Convex browser and n8n runtime results and their limits are described above. Reviewers must configure their own development providers and secrets. Production sign-in, deployment, notification delivery, and the actual daily 06:00 schedule are outside these checks.

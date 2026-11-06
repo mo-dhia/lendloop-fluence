@@ -1,10 +1,16 @@
 "use client";
-import { SignedIn, UserButton } from "@clerk/nextjs";
-import { useMutation, useQuery } from "convex/react";
+import { Show, UserButton } from "@clerk/nextjs";
+import {
+  Authenticated,
+  AuthLoading,
+  Unauthenticated,
+  useMutation,
+  useQuery,
+} from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import Link from "next/link";
 import { api } from "../convex/_generated/api";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 type Tab = "board" | "listings" | "requests" | "incoming" | "admin";
 type BoardTool = FunctionReturnType<typeof api.lendloop.board>[number];
 type MemberData = FunctionReturnType<typeof api.lendloop.mine>;
@@ -22,6 +28,41 @@ const categories = [
   "other",
 ];
 export default function Dashboard() {
+  return (
+    <>
+      <AuthLoading>
+        <main className="dashboard">
+          <section className="setup-state" aria-live="polite">
+            <p className="eyebrow">
+              <i /> MEMBER BOARD
+            </p>
+            <h1>Connecting your neighborhood.</h1>
+            <p>Verifying your secure member session…</p>
+          </section>
+        </main>
+      </AuthLoading>
+      <Unauthenticated>
+        <main className="dashboard">
+          <section className="setup-state" aria-live="polite">
+            <p className="eyebrow">
+              <i /> MEMBER BOARD
+            </p>
+            <h1>Sign in to continue.</h1>
+            <p>Your member session could not be verified. Please sign in again.</p>
+            <Link href="/" className="button button-dark">
+              Back to the public shelf
+            </Link>
+          </section>
+        </main>
+      </Unauthenticated>
+      <Authenticated>
+        <DashboardContent />
+      </Authenticated>
+    </>
+  );
+}
+
+function DashboardContent() {
   const [tab, setTab] = useState<Tab>("board");
   const [category, setCategory] = useState("all");
   const [error, setError] = useState("");
@@ -195,9 +236,11 @@ export default function Dashboard() {
         </Link>
         <div className="member-label">
           YOUR NEIGHBORHOOD LOOP{" "}
-          <SignedIn>
-            <UserButton />
-          </SignedIn>
+          <Suspense>
+            <Show when="signed-in">
+              <UserButton />
+            </Show>
+          </Suspense>
         </div>
       </header>
       <section className="dash-intro">
