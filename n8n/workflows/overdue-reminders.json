@@ -1,0 +1,244 @@
+{
+  "name": "LendLoop \u2014 daily overdue reminders (logged mock)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 6,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "d7f8572a-f35b-43f1-80ac-d55254140001",
+      "name": "Daily schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [200, 320]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nfunction canonical(v) { if (Array.isArray(v)) return '[' + v.map(canonical).join(',') + ']'; if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canonical(v[k])).join(',') + '}'; return JSON.stringify(v); }\nconst payload = {}; const timestamp = String(Math.floor(Date.now()/1000)); const nonce = crypto.randomUUID(); const path = '/lendloop/automation/overdue'; const signed = 'POST\\n' + path + '\\n' + timestamp + '\\n' + nonce + '\\n' + canonical(payload); const signature = crypto.createHmac('sha256', $env.INTEGRATION_HMAC_SECRET).update(signed).digest('hex');\nreturn [{json:{url:$env.CONVEX_HTTP_URL + path, payload, headers:{'content-type':'application/json','x-lendloop-timestamp':timestamp,'x-lendloop-nonce':nonce,'x-lendloop-signature':signature}}}];",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "d7f8572a-f35b-43f1-80ac-d55254140002",
+      "name": "Sign overdue request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "={{ $json.headers['content-type'] }}"
+            },
+            {
+              "name": "x-lendloop-timestamp",
+              "value": "={{ $json.headers['x-lendloop-timestamp'] }}"
+            },
+            {
+              "name": "x-lendloop-nonce",
+              "value": "={{ $json.headers['x-lendloop-nonce'] }}"
+            },
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.headers['x-lendloop-signature'] }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        }
+      },
+      "id": "d7f8572a-f35b-43f1-80ac-d55254140003",
+      "name": "Fetch overdue loans",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [700, 320],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json; const rows = response.loans || []; return rows.map(row => { const day = new Date().toISOString().slice(0,10); const reminderKey = 'overdue:' + row.loanId + ':' + day; return {json:{loanId:row.loanId, reminderKey, borrowerRef:row.borrowerRef, item:row.item, endDate:row.endDate}}; });",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "d7f8572a-f35b-43f1-80ac-d55254140004",
+      "name": "Prepare unique reminder items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 320]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nfunction canonical(v) { if (Array.isArray(v)) return '[' + v.map(canonical).join(',') + ']'; if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canonical(v[k])).join(',') + '}'; return JSON.stringify(v); }\nreturn $input.all().map(item => { const payload={loanId:item.json.loanId,reminderKey:item.json.reminderKey}; const timestamp=String(Math.floor(Date.now()/1000)); const nonce=crypto.randomUUID(); const path='/lendloop/automation/reminder'; const signed='POST\\n'+path+'\\n'+timestamp+'\\n'+nonce+'\\n'+canonical(payload); const signature=crypto.createHmac('sha256',$env.INTEGRATION_HMAC_SECRET).update(signed).digest('hex'); return {json:{url:$env.CONVEX_HTTP_URL+path,payload,headers:{'content-type':'application/json','x-lendloop-timestamp':timestamp,'x-lendloop-nonce':nonce,'x-lendloop-signature':signature},mock:{kind:'overdue-reminder',recipientRef:item.json.borrowerRef,item:item.json.item,endDate:item.json.endDate,delivery:'logged-mock'}}}; });",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "d7f8572a-f35b-43f1-80ac-d55254140005",
+      "name": "Sign write-back and prepare mock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "={{ $json.headers['content-type'] }}"
+            },
+            {
+              "name": "x-lendloop-timestamp",
+              "value": "={{ $json.headers['x-lendloop-timestamp'] }}"
+            },
+            {
+              "name": "x-lendloop-nonce",
+              "value": "={{ $json.headers['x-lendloop-nonce'] }}"
+            },
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.headers['x-lendloop-signature'] }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        }
+      },
+      "id": "d7f8572a-f35b-43f1-80ac-d55254140006",
+      "name": "Idempotent Convex log write-back",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1460, 320],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{status:'Reminder mock persisted', details:'Convex uses reminderKey as a unique idempotency key. No external messages are sent.'}}];",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "d7f8572a-f35b-43f1-80ac-d55254140007",
+      "name": "Completion record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1720, 320]
+    }
+  ],
+  "connections": {
+    "Daily schedule": {
+      "main": [
+        [
+          {
+            "node": "Sign overdue request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign overdue request": {
+      "main": [
+        [
+          {
+            "node": "Fetch overdue loans",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch overdue loans": {
+      "main": [
+        [
+          {
+            "node": "Prepare unique reminder items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare unique reminder items": {
+      "main": [
+        [
+          {
+            "node": "Sign write-back and prepare mock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign write-back and prepare mock": {
+      "main": [
+        [
+          {
+            "node": "Idempotent Convex log write-back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Idempotent Convex log write-back": {
+      "main": [
+        [
+          {
+            "node": "Completion record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "timezone": "Africa/Tunis"
+  },
+  "versionId": "d7f8572a-f35b-43f1-80ac-d55254140008",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

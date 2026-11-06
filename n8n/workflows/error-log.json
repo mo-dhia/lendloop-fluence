@@ -1,0 +1,49 @@
+{
+  "name": "LendLoop \u2014 workflow failure visibility",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ef65dd69-7855-4b84-a3d9-000000000001",
+      "name": "Workflow error trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [240, 260]
+    },
+    {
+      "parameters": {
+        "jsCode": "const e=$input.first().json; return [{json:{workflow:e.workflow?.name||'unknown',executionId:e.execution?.id||null,failedNode:e.execution?.lastNodeExecuted||null,message:String(e.execution?.error?.message||'Workflow failed').slice(0,300),loggedAt:new Date().toISOString(),delivery:'n8n-execution-log'}}];",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "ef65dd69-7855-4b84-a3d9-000000000002",
+      "name": "Record concise failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 260]
+    }
+  ],
+  "connections": {
+    "Workflow error trigger": {
+      "main": [
+        [
+          {
+            "node": "Record concise failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "timezone": "Africa/Tunis"
+  },
+  "versionId": "ef65dd69-7855-4b84-a3d9-000000000003",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

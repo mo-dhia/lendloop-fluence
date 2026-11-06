@@ -1,0 +1,23 @@
+services:
+  n8n:
+    image: n8nio/n8n:2.46.6
+    ports:
+      - "127.0.0.1:${N8N_PORT:-5678}:5678"
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?Set a long random N8N_ENCRYPTION_KEY in .env}
+      CONVEX_HTTP_URL: ${CONVEX_HTTP_URL:?Set CONVEX_HTTP_URL to your Convex HTTP actions base URL}
+      INTEGRATION_HMAC_SECRET: ${INTEGRATION_HMAC_SECRET:?Set INTEGRATION_HMAC_SECRET in local .env}
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto
+      GENERIC_TIMEZONE: Africa/Tunis
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+volumes:
+  n8n_data:

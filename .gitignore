@@ -1,0 +1,12 @@
+node_modules
+.next
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+.n8n
+.convex
+.env.local
+
+
+.clerk

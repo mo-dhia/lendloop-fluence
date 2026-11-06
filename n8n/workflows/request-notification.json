@@ -1,0 +1,114 @@
+{
+  "name": "LendLoop \u2014 signed request notification (logged mock)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lendloop-events",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "cfd9057c-9f89-4a0f-a417-06d2dc6ef001",
+      "name": "Convex event webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 300],
+      "webhookId": "lendloop-events"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst input = $input.first().json; const headers = input.headers || {}; const body = input.body || {};\nfunction canonical(v) { if (Array.isArray(v)) return '[' + v.map(canonical).join(',') + ']'; if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canonical(v[k])).join(',') + '}'; return JSON.stringify(v); }\nconst ts=String(headers['x-lendloop-timestamp']||headers['X-Lendloop-Timestamp']||''); const nonce=String(headers['x-lendloop-nonce']||headers['X-Lendloop-Nonce']||''); const supplied=String(headers['x-lendloop-signature']||headers['X-Lendloop-Signature']||'');\nif (!/^\\d+$/.test(ts)||Math.abs(Date.now()/1000-Number(ts))>300||!/^[a-zA-Z0-9-]{16,100}$/.test(nonce)) throw new Error('Invalid timestamp or nonce');\nconst signed='POST\\n/webhook/lendloop-events\\n'+ts+'\\n'+nonce+'\\n'+canonical(body); const expected=crypto.createHmac('sha256',$env.INTEGRATION_HMAC_SECRET).update(signed).digest('hex'); const a=Buffer.from(supplied,'hex'),b=Buffer.from(expected,'hex'); if(a.length!==b.length||!crypto.timingSafeEqual(a,b)) throw new Error('Invalid HMAC');\nif(!body.eventKey||!body.eventType||!body.recipientRef||!body.loan?.id||!body.status) throw new Error('Required event fields missing');\nconst payload={eventKey:body.eventKey,eventType:body.eventType,loanId:body.loan.id,status:body.status,recipientRef:body.recipientRef}; const timestamp=String(Math.floor(Date.now()/1000)); const requestNonce=crypto.randomUUID(); const path='/lendloop/automation/event'; const canonicalBody=canonical(payload); const message='POST\\n'+path+'\\n'+timestamp+'\\n'+requestNonce+'\\n'+canonicalBody; const signature=crypto.createHmac('sha256',$env.INTEGRATION_HMAC_SECRET).update(message).digest('hex');\nreturn [{json:{url:$env.CONVEX_HTTP_URL+path,payload,headers:{'content-type':'application/json','x-lendloop-timestamp':timestamp,'x-lendloop-nonce':requestNonce,'x-lendloop-signature':signature},mock:{eventKey:body.eventKey,kind:body.eventType,recipientRef:body.recipientRef,item:body.loan.item,status:body.status,delivery:'logged-mock'}}}];",
+        "mode": "runOnceForAllItems",
+        "language": "javaScript"
+      },
+      "id": "cfd9057c-9f89-4a0f-a417-06d2dc6ef002",
+      "name": "Verify request and sign mock-log write-back",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300],
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "={{ $json.headers['content-type'] }}"
+            },
+            {
+              "name": "x-lendloop-timestamp",
+              "value": "={{ $json.headers['x-lendloop-timestamp'] }}"
+            },
+            {
+              "name": "x-lendloop-nonce",
+              "value": "={{ $json.headers['x-lendloop-nonce'] }}"
+            },
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.headers['x-lendloop-signature'] }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        }
+      },
+      "id": "cfd9057c-9f89-4a0f-a417-06d2dc6ef003",
+      "name": "Persist idempotent mock notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [780, 300],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 3000
+    }
+  ],
+  "connections": {
+    "Verify request and sign mock-log write-back": {
+      "main": [
+        [
+          {
+            "node": "Persist idempotent mock notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convex event webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify request and sign mock-log write-back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "timezone": "Africa/Tunis"
+  },
+  "versionId": "4d6bb6b5-357f-4cf6-9f1c-7c812ddcb7a0",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
